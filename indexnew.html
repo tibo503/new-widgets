@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Focus Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      transition: background 0.3s;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    body.dark { background: #1a1a1a; }
+
+    /* ── SHARED CARD ── */
+    .card {
+      width: 300px; height: 300px;
+      border-radius: 28px;
+      position: relative;
+      perspective: 1000px;
+      cursor: default;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .card-inner {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s ease;
+    }
+
+    .card-inner.flipped { transform: rotateY(180deg); }
+
+    .card-face {
+      position: absolute;
+      width: 100%; height: 100%;
+      border-radius: 28px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .face-front {
+      background: #f0f0f0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .face-back {
+      background: #f0f0f0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+      transform: rotateY(180deg);
+      justify-content: flex-start;
+      align-items: flex-start;
+      padding: 24px 26px 20px;
+    }
+
+    body.dark .face-front,
+    body.dark .face-back { background: #2a2a2a; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+
+    .top-bar {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px 16px 0;
+      position: relative;
+      flex-shrink: 0; z-index: 1;
+    }
+
+    .dots { display: flex; gap: 6px; align-items: center; }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%; background: #ccc;
+      transition: background 0.2s; cursor: pointer;
+    }
+    body.dark .dot { background: #555; }
+    .dot.active { background: #555; }
+    body.dark .dot.active { background: #ccc; }
+
+    .help-btn {
+      position: absolute; right: 14px; top: 14px;
+      width: 24px; height: 24px;
+      border-radius: 50%; border: 1.5px solid #bbb;
+      background: transparent; color: #888;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    body.dark .help-btn { border-color: #555; color: #666; }
+
+    .swipe-area {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      border-radius: 28px; z-index: 0;
+    }
+
+    .mode-toggle {
+      position: absolute; bottom: 8px; right: 12px;
+      background: transparent; border: none;
+      cursor: pointer; font-size: 14px; opacity: 0.4;
+      z-index: 2;
+    }
+    .mode-toggle:hover { opacity: 0.7; }
+
+    .back-item { margin-bottom: 11px; }
+    .back-item h3 { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 1px; }
+    body.dark .back-item h3 { color: #f0f0f0; }
+    .back-item p { font-size: 11px; color: #888; line-height: 1.4; }
+    body.dark .back-item p { color: #666; }
+
+    .back-div { width: 100%; height: 1px; background: #ddd; margin: auto 0 10px; }
+    body.dark .back-div { background: #3a3a3a; }
+
+    .credit { font-size: 11px; color: #bbb; }
+    body.dark .credit { color: #555; }
+
+    .back-close {
+      position: absolute; right: 14px; top: 14px;
+      width: 24px; height: 24px;
+      border-radius: 50%; border: 1.5px solid #bbb;
+      background: transparent; color: #888; font-size: 13px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    body.dark .back-close { border-color: #555; color: #666; }
+
+    .pill-btn {
+      height: 36px; border-radius: 20px; border: none;
+      background: #d8d8d8; color: #111;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    body.dark .pill-btn { background: #484848; color: #f0f0f0; }
+    .pill-btn:hover { background: #c8c8c8; }
+    body.dark .pill-btn:hover { background: #555; }
+    .pill-btn:active { transform: scale(0.97); }
+
+    .cancel-text {
+      background: transparent; border: none;
+      color: #888; font-size: 13px; cursor: pointer;
+      padding: 2px 0; font-family: inherit; z-index: 1;
+    }
+    .cancel-text:hover { color: #555; }
+    body.dark .cancel-text { color: #666; }
+
+    .small-label {
+      font-size: 11px; color: #999;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      text-align: center; flex-shrink: 0;
+    }
+    body.dark .small-label { color: #666; }
+
+    /* ── POMODORO specific ── */
+    .task-bar { width: 100%; padding: 0 20px; flex-shrink: 0; z-index: 1; }
+    .task-bar input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1px solid #d8d8d8; color: #444;
+      font-size: 16px; font-family: inherit; text-align: center;
+      padding: 4px 0; outline: none;
+    }
+    .task-bar input::placeholder { color: #bbb; }
+    body.dark .task-bar input { color: #aaa; border-bottom-color: #3a3a3a; }
+    body.dark .task-bar input::placeholder { color: #555; }
+
+    .time-wrapper {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%; overflow: hidden; gap: 6px;
+    }
+
+    .time-display {
+      font-size: 80px; font-weight: 700; letter-spacing: -2px;
+      color: #111; line-height: 1; cursor: text;
+      font-variant-numeric: tabular-nums;
+      position: relative; z-index: 2;
+      transition: font-size 0.2s;
+    }
+    body.dark .time-display { color: #f0f0f0; }
+
+    .time-input {
+      font-size: 80px; font-weight: 700; letter-spacing: -2px;
+      color: #111; background: transparent;
+      border: none; outline: none; width: 220px;
+      text-align: center; font-family: inherit;
+      font-variant-numeric: tabular-nums; display: none;
+    }
+    body.dark .time-input { color: #f0f0f0; }
+
+    .progress-wrap {
+      width: 80%; height: 12px; background: #e0e0e0;
+      border-radius: 6px; overflow: hidden; z-index: 1;
+    }
+    body.dark .progress-wrap { background: #3a3a3a; }
+    .progress-bar { height: 100%; width: 100%; background: #555; transition: width 1s linear; border-radius: 6px; }
+    body.dark .progress-bar { background: #aaa; }
+
+    .pomo-controls {
+      width: 100%; display: flex; align-items: center;
+      justify-content: center; padding: 10px 24px 4px;
+      flex-shrink: 0; z-index: 1;
+    }
+
+    .adj-btn {
+      background: transparent; border: none; color: #555;
+      font-size: 22px; font-weight: 300; cursor: pointer;
+      width: 44px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px; transition: background 0.15s; flex-shrink: 0;
+    }
+    body.dark .adj-btn { color: #aaa; }
+    .adj-btn:hover { background: rgba(0,0,0,0.06); }
+    body.dark .adj-btn:hover { background: rgba(255,255,255,0.08); }
+
+    .sw-label { font-size: 11px; color: #aaa; letter-spacing: 0.1em; text-transform: uppercase; z-index: 1; display: none; }
+    body.dark .sw-label { color: #666; }
+
+    /* ── PRESET MODAL ── */
+    .preset-modal {
+      display: none; position: absolute; top:0; left:0; right:0; bottom:0;
+      border-radius: 28px; background: rgba(240,240,240,0.96);
+      z-index: 10; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+    }
+    body.dark .preset-modal { background: rgba(42,42,42,0.96); }
+    .preset-modal.visible { display: flex; }
+    .preset-modal-title { font-size: 13px; font-weight: 600; color: #555; letter-spacing: 0.08em; text-transform: uppercase; }
+    body.dark .preset-modal-title { color: #aaa; }
+    .preset-modal-input {
+      font-size: 52px; font-weight: 700; letter-spacing: -1px;
+      color: #111; background: transparent;
+      border: none; border-bottom: 2px solid #ccc; outline: none;
+      width: 160px; text-align: center; font-family: inherit;
+    }
+    body.dark .preset-modal-input { color: #f0f0f0; border-bottom-color: #555; }
+    .preset-modal-hint { font-size: 11px; color: #aaa; }
+    body.dark .preset-modal-hint { color: #555; }
+    .preset-modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+    .preset-modal-actions button {
+      padding: 7px 20px; border-radius: 16px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .pm-save { background: #555; color: #fff; }
+    body.dark .pm-save { background: #aaa; color: #111; }
+    .pm-cancel { background: #e0e0e0; color: #555; }
+    body.dark .pm-cancel { background: #3a3a3a; color: #aaa; }
+
+    /* ── TAG MODAL ── */
+    .tag-modal {
+      display: none; position: absolute; top:0; left:0; right:0; bottom:0;
+      border-radius: 28px; background: rgba(240,240,240,0.97);
+      z-index: 20; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    body.dark .tag-modal { background: rgba(42,42,42,0.97); }
+    .tag-modal.visible { display: flex; }
+    .tag-modal-title { font-size: 12px; font-weight: 600; color: #888; letter-spacing: 0.08em; text-transform: uppercase; }
+    body.dark .tag-modal-title { color: #777; }
+    .tag-modal-dur { font-size: 28px; font-weight: 700; color: #111; letter-spacing: -1px; }
+    body.dark .tag-modal-dur { color: #f0f0f0; }
+    .tag-cats { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; padding: 0 16px; }
+    .tag-cat-btn {
+      padding: 6px 12px; border-radius: 14px; border: none;
+      background: #e0e0e0; color: #333;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+    }
+    body.dark .tag-cat-btn { background: #3a3a3a; color: #ccc; }
+    .tag-cat-btn:hover { background: #555; color: #fff; }
+    body.dark .tag-cat-btn:hover { background: #aaa; color: #111; }
+    .tag-skip { font-size: 12px; color: #bbb; cursor: pointer; background: none; border: none; font-family: inherit; }
+    body.dark .tag-skip { color: #555; }
+
+    /* ── ENERGY TRACKER ── */
+    .e-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%; flex: 1; padding: 8px 20px; gap: 8px; z-index: 1;
+    }
+    .e-screen.active { display: flex; }
+
+    .e-dot-row { display: flex; gap: 10px; align-items: center; }
+    .e-dot {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #e4e4e4;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; color: #aaa;
+      cursor: pointer; transition: all 0.15s; z-index: 2; position: relative;
+    }
+    body.dark .e-dot { background: #3a3a3a; color: #666; }
+    .e-dot.selected { background: #555; color: #fff; }
+    body.dark .e-dot.selected { background: #ccc; color: #111; }
+
+    .e-note-input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1px solid #d8d8d8; color: #555;
+      font-size: 16px; font-family: inherit; text-align: center;
+      padding: 4px 0; outline: none;
+    }
+    .e-note-input::placeholder { color: #ccc; }
+    body.dark .e-note-input { color: #aaa; border-bottom-color: #3a3a3a; }
+    body.dark .e-note-input::placeholder { color: #555; }
+
+    .bars-h {
+      display: flex; align-items: flex-end; gap: 5px;
+      height: 75px; width: 100%;
+      overflow-x: auto; overflow-y: hidden;
+    }
+    .bars-h::-webkit-scrollbar { display: none; }
+
+    .bar-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+    .bar-rect { width: 18px; border-radius: 3px; background: #555; }
+    body.dark .bar-rect { background: #aaa; }
+    .bar-time { font-size: 9px; color: #bbb; }
+    body.dark .bar-time { color: #555; }
+
+    .e-summary { font-size: 11px; color: #aaa; text-align: center; }
+    body.dark .e-summary { color: #666; }
+
+    .week-bars-h { display: flex; align-items: flex-end; gap: 8px; height: 75px; width: 100%; }
+    .week-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .week-bar { width: 100%; border-radius: 3px; background: #555; }
+    body.dark .week-bar { background: #aaa; }
+    .week-bar.empty { background: #e4e4e4; }
+    body.dark .week-bar.empty { background: #3a3a3a; }
+    .week-day { font-size: 10px; color: #bbb; }
+    body.dark .week-day { color: #555; }
+    .week-day.tod { color: #555; font-weight: 600; }
+    body.dark .week-day.tod { color: #ccc; }
+
+    .month-bars-h { display: flex; align-items: flex-end; gap: 4px; height: 75px; width: 100%; }
+    .month-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+    .month-bar { width: 100%; border-radius: 2px; background: #555; }
+    body.dark .month-bar { background: #aaa; }
+    .month-bar.empty { background: #e4e4e4; }
+    body.dark .month-bar.empty { background: #3a3a3a; }
+    .month-lbl { font-size: 9px; color: #bbb; }
+    body.dark .month-lbl { color: #555; }
+    .month-lbl.cur { color: #555; font-weight: 600; }
+    body.dark .month-lbl.cur { color: #ccc; }
+
+    .avg-badge { font-size: 11px; color: #aaa; text-align: center; }
+    body.dark .avg-badge { color: #666; }
+
+    /* ── CATEGORY TRACKER ── */
+    .cat-screen {
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%; flex: 1; padding: 8px 18px; gap: 8px; z-index: 1;
+    }
+    .cat-screen.active { display: flex; }
+
+    .cat-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 7px; width: 100%;
+    }
+
+    .cat-btn {
+      padding: 8px 6px; border-radius: 14px; border: none;
+      background: #e8e8e8; color: #333;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.15s; text-align: center;
+      display: flex; flex-direction: column; gap: 2px; align-items: center;
+    }
+    body.dark .cat-btn { background: #3a3a3a; color: #ccc; }
+    .cat-btn:hover { background: #ddd; }
+    body.dark .cat-btn:hover { background: #444; }
+    .cat-btn.selected { background: #555; color: #fff; }
+    body.dark .cat-btn.selected { background: #ccc; color: #111; }
+    .cat-sub { font-size: 9px; font-weight: 400; color: #aaa; }
+    .cat-btn.selected .cat-sub { color: rgba(255,255,255,0.65); }
+    body.dark .cat-btn.selected .cat-sub { color: rgba(0,0,0,0.45); }
+
+    .cat-bars { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .cat-bar-row { display: flex; flex-direction: column; gap: 2px; }
+    .cat-bar-top { display: flex; justify-content: space-between; align-items: baseline; }
+    .cat-bar-name { font-size: 11px; font-weight: 600; color: #555; }
+    body.dark .cat-bar-name { color: #bbb; }
+    .cat-bar-time { font-size: 10px; color: #aaa; }
+    body.dark .cat-bar-time { color: #666; }
+    .cat-bar-track { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+    body.dark .cat-bar-track { background: #3a3a3a; }
+    .cat-bar-fill { height: 100%; background: #555; border-radius: 3px; transition: width 0.4s; }
+    body.dark .cat-bar-fill { background: #aaa; }
+    .cat-bar-fill.top-bar { background: #333; }
+    body.dark .cat-bar-fill.top-bar { background: #eee; }
+
+    .cat-empty { font-size: 12px; color: #bbb; text-align: center; }
+    body.dark .cat-empty { color: #555; }
+  </style>
+</head>
+<body>
+
+<!-- ════════ ENERGY TRACKER ════════ -->
+<div class="card" id="eCard">
+  <div class="card-inner" id="eInner">
+    <div class="card-face face-front">
+      <div class="swipe-area" id="eSwipe"></div>
+      <div class="top-bar">
+        <div class="dots" id="eDots">
+          <div class="dot active"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        <button class="help-btn" id="eHelpBtn">?</button>
+      </div>
+
+      <!-- Screen 1: Rate -->
+      <div class="e-screen active" id="eS1">
+        <div class="small-label">Energy before session</div>
+        <div class="e-dot-row" id="eRatingRow">
+          <div class="e-dot" data-v="1">1</div>
+          <div class="e-dot" data-v="2">2</div>
+          <div class="e-dot" data-v="3">3</div>
+          <div class="e-dot" data-v="4">4</div>
+          <div class="e-dot" data-v="5">5</div>
+        </div>
+        <input class="e-note-input" id="eNote" placeholder="Add a note (optional)" maxlength="40"/>
+      </div>
+
+      <!-- Screen 2: Today -->
+      <div class="e-screen" id="eS2">
+        <div class="small-label">Today's sessions</div>
+        <div class="bars-h" id="eTodayBars"></div>
+        <div class="e-summary" id="eSummary"></div>
+        <button class="cancel-text" id="eClearBtn">Clear today</button>
+      </div>
+
+      <!-- Screen 3: Weekly -->
+      <div class="e-screen" id="eS3">
+        <div class="small-label">This week's avg</div>
+        <div class="week-bars-h" id="eWeekBars"></div>
+        <div class="avg-badge" id="eWeekAvg"></div>
+      </div>
+
+      <!-- Screen 4: Monthly -->
+      <div class="e-screen" id="eS4">
+        <div class="small-label">This month by week</div>
+        <div class="month-bars-h" id="eMonthBars"></div>
+        <div class="avg-badge" id="eMonthAvg"></div>
+      </div>
+
+      <div class="pomo-controls" id="eLogControls">
+        <button class="pill-btn" style="flex:1;" id="eLogBtn">Log energy</button>
+      </div>
+      <button class="cancel-text" id="eUndoBtn" style="visibility:hidden;padding:4px 0 10px;">Undo last log</button>
+
+      <button class="mode-toggle" id="eMode">●</button>
+    </div>
+
+    <div class="card-face face-back">
+      <button class="back-close" id="eBackClose">?</button>
+      <div class="back-item"><h3>Rate energy</h3><p>Tap 1–5 before each session. Add a note optionally.</p></div>
+      <div class="back-item"><h3>Undo</h3><p>Tap "Undo last log" right after logging to remove it.</p></div>
+      <div class="back-item"><h3>Today's sessions</h3><p>Swipe right — each session as a timestamped bar.</p></div>
+      <div class="back-item"><h3>Weekly & monthly</h3><p>Swipe right to see averages over time.</p></div>
+      <div class="back-div"></div>
+      <div class="credit">All rights reserved by @whoishoax</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ POMODORO ════════ -->
+<div class="card" id="pCard">
+  <div class="card-inner" id="pInner">
+    <div class="card-face face-front">
+      <div class="swipe-area" id="pSwipe"></div>
+      <div class="top-bar">
+        <div class="dots" id="pDots">
+          <div class="dot active" data-i="0"></div>
+          <div class="dot" data-i="1"></div>
+          <div class="dot" data-i="2"></div>
+        </div>
+        <button class="help-btn" id="pHelpBtn">?</button>
+      </div>
+
+      <div class="time-wrapper">
+        <div class="task-bar">
+          <input type="text" id="taskInput" placeholder="What are you working on?" maxlength="60"/>
+        </div>
+        <div class="sw-label" id="swLabel">Stopwatch</div>
+        <div class="time-display" id="timeDisplay">25:00</div>
+        <input class="time-input" id="timeInput" maxlength="4" placeholder="0000"/>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+
+      <div class="pomo-controls">
+        <button class="adj-btn" id="minusBtn">−</button>
+        <button class="pill-btn" style="flex:1;" id="startBtn">Start</button>
+        <button class="adj-btn" id="plusBtn">+</button>
+      </div>
+      <button class="cancel-text" id="cancelBtn" style="padding: 4px 0 10px;">Cancel</button>
+
+      <button class="mode-toggle" id="pMode">●</button>
+
+      <div class="preset-modal" id="presetModal">
+        <div class="preset-modal-title" id="pmTitle">Edit Preset 1</div>
+        <input class="preset-modal-input" id="pmInput" maxlength="4" placeholder="2500"/>
+        <div class="preset-modal-hint">Type MMSS — e.g. 2500 = 25:00</div>
+        <div class="preset-modal-actions">
+          <button class="pm-cancel" id="pmCancel">Cancel</button>
+          <button class="pm-save" id="pmSave">Save</button>
+        </div>
+      </div>
+
+      <div class="tag-modal" id="tagModal">
+        <div class="tag-modal-title">Tag this session</div>
+        <div class="tag-modal-dur" id="tagDur">25:00</div>
+        <div class="tag-cats" id="tagCats"></div>
+        <button class="tag-skip" id="tagSkip">Skip</button>
+      </div>
+    </div>
+
+    <div class="card-face face-back">
+      <button class="back-close" id="pBackClose">?</button>
+      <div class="back-item"><h3>Deep focus</h3><p>Dot 1 — countdown. Double-click dot to set custom time.</p></div>
+      <div class="back-item"><h3>Rest</h3><p>Dot 2 — countdown for breaks.</p></div>
+      <div class="back-item"><h3>Stopwatch</h3><p>Dot 3 — counts up indefinitely. Hit Stop when done.</p></div>
+      <div class="back-item"><h3>Tag session</h3><p>After finishing, tag the category to log your time.</p></div>
+      <div class="back-item"><h3>Edit time</h3><p>Double-click the timer to type a time directly.</p></div>
+      <div class="back-div"></div>
+      <div class="credit">All rights reserved by @whoishoax</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ CATEGORY TRACKER ════════ -->
+<div class="card" id="catCard">
+  <div class="card-inner" id="catInner">
+    <div class="card-face face-front">
+      <div class="swipe-area" id="catSwipe"></div>
+      <div class="top-bar">
+        <div class="dots" id="catDots">
+          <div class="dot active"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        <button class="help-btn" id="catHelpBtn">?</button>
+      </div>
+
+      <!-- Screen 1: Pick -->
+      <div class="cat-screen active" id="catS1">
+        <div class="small-label">Select category</div>
+        <div class="cat-grid" id="catGrid"></div>
+      </div>
+
+      <!-- Screen 2: Today -->
+      <div class="cat-screen" id="catS2">
+        <div class="small-label">Today's focus</div>
+        <div class="cat-bars" id="catTodayBars"></div>
+        <button class="cancel-text" id="catClearBtn">Clear today</button>
+      </div>
+
+      <!-- Screen 3: This week -->
+      <div class="cat-screen" id="catS3">
+        <div class="small-label">This week</div>
+        <div class="cat-bars" id="catWeekBars"></div>
+      </div>
+
+      <!-- Screen 4: All-time -->
+      <div class="cat-screen" id="catS4">
+        <div class="small-label">All-time</div>
+        <div class="cat-bars" id="catAllBars"></div>
+      </div>
+
+      <div class="pomo-controls" id="catLogControls">
+        <button class="pill-btn" style="flex:1;" id="catLogBtn">Log session</button>
+      </div>
+      <button class="cancel-text" id="catUndoBtn" style="visibility:hidden;padding:4px 0 10px;">Undo last log</button>
+
+      <button class="mode-toggle" id="catMode">●</button>
+    </div>
+
+    <div class="card-face face-back">
+      <button class="back-close" id="catBackClose">?</button>
+      <div class="back-item"><h3>Pick category</h3><p>Tap a category then hit Log session.</p></div>
+      <div class="back-item"><h3>Auto-log</h3><p>Finish a Pomodoro and tag it — time is logged automatically.</p></div>
+      <div class="back-item"><h3>Undo</h3><p>Tap "Undo last log" right after logging.</p></div>
+      <div class="back-item"><h3>Patterns</h3><p>Swipe right to see today / week / all-time breakdowns.</p></div>
+      <div class="back-item"><h3>Rename</h3><p>Double-click a category button to rename it.</p></div>
+      <div class="back-div"></div>
+      <div class="credit">All rights reserved by @whoishoax</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════ SHARED ══════════════
+let dark = false;
+function setDark(v) { dark = v; document.body.classList.toggle('dark', dark); }
+function fmt(s) { return Math.floor(s/60).toString().padStart(2,'0')+':'+(s%60).toString().padStart(2,'0'); }
+function fmtSW(s) {
+  if(s < 3600) return fmt(s);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return h+':'+m.toString().padStart(2,'0')+':'+sec.toString().padStart(2,'0');
+}
+function fmtDur(s) {
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  if(h>0) return `${h}h ${m}m`;
+  if(m>0) return `${m}m${sec>0?' '+sec+'s':''}`;
+  return `${sec}s`;
+}
+
+// ══════════════ ENERGY TRACKER ══════════════
+let eScreen=0, eRating=0;
+let eSessions=JSON.parse(localStorage.getItem('energySessions')||'[]');
+let eUndoTimer=null;
+
+const eDotEls=document.querySelectorAll('#eDots .dot');
+const eScreenEls=[document.getElementById('eS1'),document.getElementById('eS2'),document.getElementById('eS3'),document.getElementById('eS4')];
+const eUndoBtn=document.getElementById('eUndoBtn');
+
+document.querySelectorAll('.e-dot').forEach(dot=>{
+  dot.addEventListener('click',()=>{
+    eRating=parseInt(dot.dataset.v);
+    document.querySelectorAll('.e-dot').forEach(d=>d.classList.toggle('selected',parseInt(d.dataset.v)===eRating));
+  });
+});
+
+document.getElementById('eLogBtn').addEventListener('click',()=>{
+  if(!eRating) return;
+  eSessions.push({rating:eRating,note:document.getElementById('eNote').value.trim(),time:new Date().toISOString()});
+  localStorage.setItem('energySessions',JSON.stringify(eSessions));
+  eRating=0;
+  document.querySelectorAll('.e-dot').forEach(d=>d.classList.remove('selected'));
+  document.getElementById('eNote').value='';
+  eUndoBtn.style.visibility='visible';
+  clearTimeout(eUndoTimer);
+  eUndoTimer=setTimeout(()=>{ eUndoBtn.style.visibility='hidden'; },10000);
+});
+
+eUndoBtn.addEventListener('click',()=>{
+  if(!eSessions.length) return;
+  eSessions.pop();
+  localStorage.setItem('energySessions',JSON.stringify(eSessions));
+  eUndoBtn.style.visibility='hidden';
+  clearTimeout(eUndoTimer);
+});
+
+document.getElementById('eClearBtn').addEventListener('click',()=>{
+  const today=new Date().toDateString();
+  eSessions=eSessions.filter(s=>new Date(s.time).toDateString()!==today);
+  localStorage.setItem('energySessions',JSON.stringify(eSessions));
+  renderEToday();
+});
+
+function showEScreen(i){
+  eScreen=i;
+  eScreenEls.forEach((s,idx)=>s.classList.toggle('active',idx===i));
+  eDotEls.forEach((d,idx)=>d.classList.toggle('active',idx===i));
+  document.getElementById('eLogControls').style.display=i===0?'flex':'none';
+  if(i===1) renderEToday();
+  if(i===2) renderEWeek();
+  if(i===3) renderEMonth();
+}
+
+function renderEToday(){
+  const today=new Date().toDateString();
+  const todays=eSessions.filter(s=>new Date(s.time).toDateString()===today);
+  const el=document.getElementById('eTodayBars'); el.innerHTML='';
+  const sum=document.getElementById('eSummary');
+  if(!todays.length){sum.textContent='No sessions logged yet';return;}
+  todays.forEach(s=>{
+    const col=document.createElement('div'); col.className='bar-col';
+    const h=Math.round((s.rating/5)*68);
+    const t=new Date(s.time);
+    const lbl=t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
+    col.innerHTML=`<div class="bar-rect" style="height:${h}px;" title="${s.note||''}"></div><div class="bar-time">${lbl}</div>`;
+    el.appendChild(col);
+  });
+  const avg=(todays.reduce((a,s)=>a+s.rating,0)/todays.length).toFixed(1);
+  sum.textContent=`${todays.length} session${todays.length>1?'s':''} · avg ${avg}`;
+}
+
+function renderEWeek(){
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const now=new Date(); const ti=now.getDay();
+  const el=document.getElementById('eWeekBars'); el.innerHTML='';
+  for(let i=0;i<7;i++){
+    const d=new Date(now); d.setDate(now.getDate()-ti+i);
+    const ds2=eSessions.filter(s=>new Date(s.time).toDateString()===d.toDateString());
+    const avg=ds2.length?ds2.reduce((a,s)=>a+s.rating,0)/ds2.length:0;
+    const h=avg?Math.round((avg/5)*68):4;
+    const col=document.createElement('div'); col.className='week-col';
+    col.innerHTML=`<div class="week-bar${!ds2.length?' empty':''}" style="height:${h}px;"></div><div class="week-day${i===ti?' tod':''}">${days[i]}</div>`;
+    el.appendChild(col);
+  }
+  const ws=eSessions.filter(s=>(new Date()-new Date(s.time))/86400000<7);
+  const wa=ws.length?(ws.reduce((a,s)=>a+s.rating,0)/ws.length).toFixed(1):'—';
+  document.getElementById('eWeekAvg').textContent=ws.length?`Week avg: ${wa} · ${ws.length} sessions`:'No data this week yet';
+}
+
+function renderEMonth(){
+  const now=new Date();
+  const first=new Date(now.getFullYear(),now.getMonth(),1);
+  const weeks=[]; let cur=new Date(first);
+  while(cur.getMonth()===now.getMonth()){
+    const end=new Date(cur); end.setDate(cur.getDate()+7);
+    weeks.push(eSessions.filter(s=>{const d=new Date(s.time);return d>=cur&&d<end&&d.getMonth()===now.getMonth();}));
+    cur.setDate(cur.getDate()+7);
+  }
+  const el=document.getElementById('eMonthBars'); el.innerHTML='';
+  weeks.forEach((ws,i)=>{
+    const avg=ws.length?ws.reduce((a,s)=>a+s.rating,0)/ws.length:0;
+    const h=avg?Math.round((avg/5)*68):4;
+    const col=document.createElement('div'); col.className='month-col';
+    col.innerHTML=`<div class="month-bar${!ws.length?' empty':''}" style="height:${h}px;"></div><div class="month-lbl${i===weeks.length-1?' cur':''}">W${i+1}</div>`;
+    el.appendChild(col);
+  });
+  const ms=eSessions.filter(s=>{const d=new Date(s.time);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const ma=ms.length?(ms.reduce((a,s)=>a+s.rating,0)/ms.length).toFixed(1):'—';
+  document.getElementById('eMonthAvg').textContent=ms.length?`Month avg: ${ma} · ${ms.length} sessions`:'No data this month yet';
+}
+
+let eMX=null,eTX=null;
+document.getElementById('eSwipe').addEventListener('mousedown',e=>{eMX=e.clientX;});
+document.getElementById('eSwipe').addEventListener('mouseup',e=>{
+  if(eMX===null)return;
+  const dx=e.clientX-eMX;
+  if(Math.abs(dx)>40)showEScreen(Math.max(0,Math.min(3,eScreen+(dx<0?1:-1))));
+  eMX=null;
+});
+document.getElementById('eSwipe').addEventListener('touchstart',e=>{eTX=e.touches[0].clientX;},{passive:true});
+document.getElementById('eSwipe').addEventListener('touchend',e=>{
+  if(eTX===null)return;
+  const dx=e.changedTouches[0].clientX-eTX;
+  if(Math.abs(dx)>40)showEScreen(Math.max(0,Math.min(3,eScreen+(dx<0?1:-1))));
+  eTX=null;
+});
+
+eDotEls.forEach((d,i)=>d.addEventListener('click',()=>showEScreen(i)));
+document.getElementById('eHelpBtn').addEventListener('click',()=>document.getElementById('eInner').classList.add('flipped'));
+document.getElementById('eBackClose').addEventListener('click',()=>document.getElementById('eInner').classList.remove('flipped'));
+document.getElementById('eMode').addEventListener('click',()=>setDark(!dark));
+
+// ══════════════ POMODORO ══════════════
+const pPresets=[25*60,5*60];
+let pCurrent=0, pRemaining=pPresets[0], pElapsed=0;
+let pRunning=false, pInterval=null, pEditPreset=null, pLastDuration=0;
+
+const pInner=document.getElementById('pInner');
+const timeDisplay=document.getElementById('timeDisplay');
+const timeInput=document.getElementById('timeInput');
+const startBtn=document.getElementById('startBtn');
+const cancelBtn=document.getElementById('cancelBtn');
+const minusBtn=document.getElementById('minusBtn');
+const plusBtn=document.getElementById('plusBtn');
+const progressBar=document.getElementById('progressBar');
+const progressWrap=document.getElementById('progressWrap');
+const swLabel=document.getElementById('swLabel');
+const pDotsEl=document.querySelectorAll('#pDots .dot');
+const presetModal=document.getElementById('presetModal');
+const pmInput=document.getElementById('pmInput');
+const tagModal=document.getElementById('tagModal');
+const tagDurEl=document.getElementById('tagDur');
+const tagCatsEl=document.getElementById('tagCats');
+
+function pIsSW(){return pCurrent===2;}
+
+function pUpdateDisplay(){
+  if(pIsSW()){
+    const txt=fmtSW(pElapsed);
+    timeDisplay.textContent=txt;
+    // shrink font for H:MM:SS format
+    timeDisplay.style.fontSize=pElapsed>=3600?'54px':'80px';
+    progressWrap.style.display='none';
+    swLabel.style.display='block';
+    minusBtn.style.visibility='hidden';
+    plusBtn.style.visibility='hidden';
+  } else {
+    timeDisplay.textContent=fmt(pRemaining);
+    timeDisplay.style.fontSize='80px';
+    progressWrap.style.display='block';
+    swLabel.style.display='none';
+    minusBtn.style.visibility='visible';
+    plusBtn.style.visibility='visible';
+    const pct=pPresets[pCurrent]>0?(pRemaining/pPresets[pCurrent])*100:100;
+    progressBar.style.width=pct+'%';
+  }
+}
+
+function pUpdateDots(){ pDotsEl.forEach((d,i)=>d.classList.toggle('active',i===pCurrent)); }
+
+function pLoad(i){
+  pStop(); pCurrent=i;
+  if(pIsSW()) pElapsed=0; else pRemaining=pPresets[i];
+  pUpdateDisplay(); pUpdateDots();
+}
+
+function pStop(){ clearInterval(pInterval); pRunning=false; startBtn.textContent='Start'; }
+
+function pReset(){
+  pStop();
+  if(pIsSW()) pElapsed=0; else pRemaining=pPresets[pCurrent];
+  pUpdateDisplay();
+}
+
+function pSessionDone(dur){
+  pLastDuration=dur;
+  tagDurEl.textContent=fmtDur(dur);
+  renderTagCats();
+  tagModal.classList.add('visible');
+}
+
+function pTick(){
+  if(pIsSW()){ pElapsed++; pUpdateDisplay(); }
+  else {
+    if(pRemaining<=0){ pStop(); pRemaining=0; pUpdateDisplay(); playDone(); pSessionDone(pPresets[pCurrent]); return; }
+    pRemaining--; pUpdateDisplay();
+  }
+}
+
+startBtn.addEventListener('click',()=>{
+  if(pRunning){
+    if(pIsSW()){ pStop(); pUpdateDisplay(); if(pElapsed>0) pSessionDone(pElapsed); }
+    else { pStop(); pUpdateDisplay(); }
+  } else {
+    if(!pIsSW()&&pRemaining===0) pRemaining=pPresets[pCurrent];
+    pRunning=true;
+    startBtn.textContent=pIsSW()?'Stop':'Pause';
+    pInterval=setInterval(pTick,1000);
+  }
+});
+
+cancelBtn.addEventListener('click',pReset);
+
+minusBtn.addEventListener('click',()=>{
+  if(pRunning||pIsSW())return;
+  pPresets[pCurrent]=Math.max(60,pPresets[pCurrent]-60);
+  pRemaining=pPresets[pCurrent]; pUpdateDisplay();
+});
+plusBtn.addEventListener('click',()=>{
+  if(pRunning||pIsSW())return;
+  pPresets[pCurrent]=Math.min(99*60+59,pPresets[pCurrent]+60);
+  pRemaining=pPresets[pCurrent]; pUpdateDisplay();
+});
+
+timeDisplay.addEventListener('dblclick',()=>{
+  if(pRunning||pIsSW())return;
+  timeDisplay.style.display='none'; timeInput.style.display='block';
+  timeInput.value=''; timeInput.focus();
+});
+timeInput.addEventListener('input',()=>{timeInput.value=timeInput.value.replace(/\D/g,'').slice(0,4);});
+timeInput.addEventListener('blur',commitTime);
+timeInput.addEventListener('keydown',e=>{if(e.key==='Enter')commitTime();if(e.key==='Escape')cancelTimeEdit();});
+function commitTime(){
+  const val=timeInput.value.padStart(4,'0');
+  const secs=Math.min(parseInt(val.slice(0,2)),99)*60+Math.min(parseInt(val.slice(2,4)),59);
+  pPresets[pCurrent]=secs; pRemaining=secs;
+  timeInput.style.display='none'; timeDisplay.style.display='block'; pUpdateDisplay();
+}
+function cancelTimeEdit(){timeInput.style.display='none';timeDisplay.style.display='block';}
+
+let dotTimers={};
+pDotsEl.forEach((dot,i)=>{
+  dot.addEventListener('click',()=>{
+    if(dotTimers[i]){clearTimeout(dotTimers[i]);dotTimers[i]=null;if(i<2)openPresetModal(i);}
+    else{dotTimers[i]=setTimeout(()=>{dotTimers[i]=null;pLoad(i);},250);}
+  });
+});
+
+function openPresetModal(i){
+  pEditPreset=i;
+  document.getElementById('pmTitle').textContent=`Edit Preset ${i+1}`;
+  const m=Math.floor(pPresets[i]/60).toString().padStart(2,'0');
+  const s=(pPresets[i]%60).toString().padStart(2,'0');
+  pmInput.value=m+s; presetModal.classList.add('visible');
+  pmInput.focus(); pmInput.select();
+}
+pmInput.addEventListener('input',()=>{pmInput.value=pmInput.value.replace(/\D/g,'').slice(0,4);});
+document.getElementById('pmSave').addEventListener('click',savePreset);
+pmInput.addEventListener('keydown',e=>{if(e.key==='Enter')savePreset();if(e.key==='Escape')closePresetModal();});
+document.getElementById('pmCancel').addEventListener('click',closePresetModal);
+function savePreset(){
+  const val=pmInput.value.padStart(4,'0');
+  const secs=Math.min(parseInt(val.slice(0,2)),99)*60+Math.min(parseInt(val.slice(2,4)),59);
+  pPresets[pEditPreset]=secs;
+  if(pEditPreset===pCurrent){pRemaining=secs;pStop();pUpdateDisplay();}
+  closePresetModal();
+}
+function closePresetModal(){presetModal.classList.remove('visible');pEditPreset=null;}
+
+function renderTagCats(){
+  tagCatsEl.innerHTML='';
+  catNames.forEach((name,i)=>{
+    const btn=document.createElement('button'); btn.className='tag-cat-btn'; btn.textContent=name;
+    btn.addEventListener('click',()=>{
+      catSessions.push({catIdx:i,duration:pLastDuration,time:new Date().toISOString()});
+      saveCatSessions();
+      tagModal.classList.remove('visible');
+      if(catScreen>0)showCatScreen(catScreen);
+    });
+    tagCatsEl.appendChild(btn);
+  });
+}
+document.getElementById('tagSkip').addEventListener('click',()=>tagModal.classList.remove('visible'));
+
+function playDone(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [523,659,784].forEach((freq,i)=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.frequency.value=freq;osc.type='sine';
+      gain.gain.setValueAtTime(0,ctx.currentTime+i*0.28);
+      gain.gain.linearRampToValueAtTime(0.15,ctx.currentTime+i*0.28+0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.28+0.7);
+      osc.start(ctx.currentTime+i*0.28);osc.stop(ctx.currentTime+i*0.28+0.7);
+    });
+  }catch(e){}
+}
+
+let pMX=null,pTX=null;
+document.getElementById('pSwipe').addEventListener('mousedown',e=>{pMX=e.clientX;});
+document.getElementById('pSwipe').addEventListener('mouseup',e=>{
+  if(pMX===null)return;
+  const dx=e.clientX-pMX;
+  if(Math.abs(dx)>40)pLoad((pCurrent+(dx<0?1:-1)+3)%3);
+  pMX=null;
+});
+document.getElementById('pSwipe').addEventListener('touchstart',e=>{pTX=e.touches[0].clientX;},{passive:true});
+document.getElementById('pSwipe').addEventListener('touchend',e=>{
+  if(pTX===null)return;
+  const dx=e.changedTouches[0].clientX-pTX;
+  if(Math.abs(dx)>40)pLoad((pCurrent+(dx<0?1:-1)+3)%3);
+  pTX=null;
+});
+
+document.getElementById('pHelpBtn').addEventListener('click',()=>pInner.classList.add('flipped'));
+document.getElementById('pBackClose').addEventListener('click',()=>pInner.classList.remove('flipped'));
+document.getElementById('pMode').addEventListener('click',()=>setDark(!dark));
+
+pUpdateDisplay(); pUpdateDots();
+
+// ══════════════ CATEGORY TRACKER ══════════════
+let catNames=JSON.parse(localStorage.getItem('catNames')||'["Producing","Set Prep","Outreach","Learning","Sample Search","Social Media"]');
+let catSessions=JSON.parse(localStorage.getItem('catSessions')||'[]');
+let catSelected=null, catScreen=0;
+let catUndoTimer=null;
+
+const catDotEls=document.querySelectorAll('#catDots .dot');
+const catScreenEls=[document.getElementById('catS1'),document.getElementById('catS2'),document.getElementById('catS3'),document.getElementById('catS4')];
+const catGrid=document.getElementById('catGrid');
+const catUndoBtn=document.getElementById('catUndoBtn');
+
+function saveCats(){localStorage.setItem('catNames',JSON.stringify(catNames));}
+function saveCatSessions(){localStorage.setItem('catSessions',JSON.stringify(catSessions));}
+
+function renderCatGrid(){
+  catGrid.innerHTML='';
+  catNames.forEach((name,i)=>{
+    const btn=document.createElement('button');
+    btn.className='cat-btn'+(catSelected===i?' selected':'');
+    const ws=catWeekSecs()[i]||0;
+    btn.innerHTML=`<span>${name}</span>${ws>0?`<span class="cat-sub">${fmtDur(ws)} this week</span>`:''}`;
+    btn.addEventListener('click',()=>{catSelected=catSelected===i?null:i;renderCatGrid();});
+    btn.addEventListener('dblclick',()=>{
+      const n=prompt(`Rename "${name}":`,name);
+      if(n&&n.trim()){catNames[i]=n.trim().slice(0,15);saveCats();renderCatGrid();}
+    });
+    catGrid.appendChild(btn);
+  });
+}
+
+function catWeekSecs(){
+  const now=new Date(),map={};
+  catNames.forEach((_,i)=>map[i]=0);
+  catSessions.forEach(s=>{if((now-new Date(s.time))/86400000<7)map[s.catIdx]=(map[s.catIdx]||0)+s.duration;});
+  return map;
+}
+function catTodaySecs(){
+  const today=new Date().toDateString(),map={};
+  catNames.forEach((_,i)=>map[i]=0);
+  catSessions.forEach(s=>{if(new Date(s.time).toDateString()===today)map[s.catIdx]=(map[s.catIdx]||0)+s.duration;});
+  return map;
+}
+function catAllSecs(){
+  const map={};
+  catNames.forEach((_,i)=>map[i]=0);
+  catSessions.forEach(s=>{map[s.catIdx]=(map[s.catIdx]||0)+s.duration;});
+  return map;
+}
+
+function renderCatBars(containerId,secsMap){
+  const el=document.getElementById(containerId); el.innerHTML='';
+  const vals=catNames.map((_,i)=>secsMap[i]||0);
+  const maxVal=Math.max(...vals,1);
+  const total=vals.reduce((a,b)=>a+b,0);
+  if(total===0){el.innerHTML='<div class="cat-empty">No sessions logged yet</div>';return;}
+  const sorted=catNames.map((n,i)=>({n,i,v:vals[i]})).sort((a,b)=>b.v-a.v);
+  sorted.forEach(({n,i,v})=>{
+    if(v===0)return;
+    const pct=Math.round((v/maxVal)*100);
+    const isTop=sorted[0].i===i;
+    const row=document.createElement('div'); row.className='cat-bar-row';
+    row.innerHTML=`<div class="cat-bar-top"><span class="cat-bar-name">${n}</span><span class="cat-bar-time">${fmtDur(v)}</span></div><div class="cat-bar-track"><div class="cat-bar-fill${isTop?' top-bar':''}" style="width:${pct}%"></div></div>`;
+    el.appendChild(row);
+  });
+}
+
+function showCatScreen(i){
+  catScreen=i;
+  catScreenEls.forEach((s,idx)=>s.classList.toggle('active',idx===i));
+  catDotEls.forEach((d,idx)=>d.classList.toggle('active',idx===i));
+  document.getElementById('catLogControls').style.display=i===0?'flex':'none';
+  if(i===0)renderCatGrid();
+  if(i===1)renderCatBars('catTodayBars',catTodaySecs());
+  if(i===2)renderCatBars('catWeekBars',catWeekSecs());
+  if(i===3)renderCatBars('catAllBars',catAllSecs());
+}
+
+document.getElementById('catLogBtn').addEventListener('click',()=>{
+  if(catSelected===null)return;
+  catSessions.push({catIdx:catSelected,duration:1500,time:new Date().toISOString()});
+  saveCatSessions();
+  catSelected=null;
+  catUndoBtn.style.visibility='visible';
+  clearTimeout(catUndoTimer);
+  catUndoTimer=setTimeout(()=>{catUndoBtn.style.visibility='hidden';},10000);
+  renderCatGrid();
+});
+
+catUndoBtn.addEventListener('click',()=>{
+  if(!catSessions.length)return;
+  catSessions.pop();
+  saveCatSessions();
+  catUndoBtn.style.visibility='hidden';
+  clearTimeout(catUndoTimer);
+  renderCatGrid();
+});
+
+document.getElementById('catClearBtn').addEventListener('click',()=>{
+  const today=new Date().toDateString();
+  catSessions=catSessions.filter(s=>new Date(s.time).toDateString()!==today);
+  saveCatSessions();
+  renderCatBars('catTodayBars',catTodaySecs());
+});
+
+catDotEls.forEach((d,i)=>d.addEventListener('click',()=>showCatScreen(i)));
+
+let catMX=null,catTX=null;
+document.getElementById('catSwipe').addEventListener('mousedown',e=>{catMX=e.clientX;});
+document.getElementById('catSwipe').addEventListener('mouseup',e=>{
+  if(catMX===null)return;
+  const dx=e.clientX-catMX;
+  if(Math.abs(dx)>40)showCatScreen(Math.max(0,Math.min(3,catScreen+(dx<0?1:-1))));
+  catMX=null;
+});
+document.getElementById('catSwipe').addEventListener('touchstart',e=>{catTX=e.touches[0].clientX;},{passive:true});
+document.getElementById('catSwipe').addEventListener('touchend',e=>{
+  if(catTX===null)return;
+  const dx=e.changedTouches[0].clientX-catTX;
+  if(Math.abs(dx)>40)showCatScreen(Math.max(0,Math.min(3,catScreen+(dx<0?1:-1))));
+  catTX=null;
+});
+
+document.getElementById('catHelpBtn').addEventListener('click',()=>document.getElementById('catInner').classList.add('flipped'));
+document.getElementById('catBackClose').addEventListener('click',()=>document.getElementById('catInner').classList.remove('flipped'));
+document.getElementById('catMode').addEventListener('click',()=>setDark(!dark));
+
+showCatScreen(0);
+</script>
+</body>
+</html>
